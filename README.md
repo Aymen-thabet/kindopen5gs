@@ -116,7 +116,7 @@ This deployment provides a fully functional 5G Core Network for testing and deve
 - Git (to clone source repositories)
 
 ---
-### 2. Clone source code
+### 1. Clone source code
 
 The Open5GS and UERANSIM source code is not included in this repository (to keep it lightweight). Clone them separately:
 

@@ -564,9 +564,9 @@ kubectl port-forward -n monitoring svc/kind-prometheus-kube-prometheus-prometheu
 ```
 
 
-Prometheus: http://<nodeIP>:30000/graph
+Prometheus: http://localhost:9090/graph
 
-Alertmanager: http://<nodeIP>:32000/graph
+Alertmanager: http://localhost:9093/graph
 
 Grafana: http://<nodeIP>:31000
 

@@ -269,7 +269,37 @@ You should see: `Admin account created successfully`
 kubectl run -it --rm debug --image=local/open5gs:latest --restart=Never -n open5gs -- \
   /bin/open5gs-dbctl add 999700000000001 465B5CE8B199B49FAA5F0A2EE238A6BC E8ED289DEBA952E4283B54E88E6183CA
 ```
+⚠️ Troubleshooting the Subscriber Addition
+If the open5gs-dbctl command fails, it is usually due to one of these three common Kubernetes/Docker issues:
 
+ImagePullBackOff / ErrImagePull: Kind cannot find the image. (Fix: Run kind load docker-image local/open5gs:latest --name kind-5gs).
+
+StartError (stat /bin/... no such file): The path to the script inside your specific Docker image is different.
+
+timed out waiting for the condition: The pod started, but the script hung because it couldn't find a MongoDB client (mongosh) inside the container.
+
+Solution: Direct Database Injection If you encounter any of the above, bypass the helper script and inject the subscriber directly into MongoDB:
+
+```bash
+kubectl exec -it -n open5gs deployment/mongodb -- mongosh open5gs --eval '
+db.subscribers.insertOne({
+  "imsi": "999700000000001",
+  "security": {
+    "k": "465B5CE8B199B49FAA5F0A2EE238A6BC",
+    "amf": "8000",
+    "opc": "E8ED289DEBA952E4283B54E88E6183CA"
+  },
+  "ambr": { "uplink": { "value": 1, "unit": 3 }, "downlink": { "value": 1, "unit": 3 } },
+  "slice": [{
+    "sst": 1,
+    "default_indicator": true,
+    "session": [{ "nssai": { "sst": 1 }, "qos": { "index": 9 }, "dnn": "internet" }]
+  }],
+  "access_restriction_data": 32,
+  "subscriber_status": 0,
+  "network_access_mode": 0
+})'
+```
 **Subscriber Details:**
 - **IMSI**: 999700000000001
 - **K (Key)**: 465B5CE8B199B49FAA5F0A2EE238A6BC

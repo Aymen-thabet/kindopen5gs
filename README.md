@@ -621,7 +621,7 @@ pip install requests pandas torch matplotlib transformers chronos
 2. Step A: Metrics Collection (The Python Collector)
 We interface directly with the Prometheus HTTP API. The following script queries the container_cpu and container_memory metrics for specific pods over a 3-day window ( example).
 
-Create collect_amf_metrics.py:
+Create **collect_amf_metrics.py**:
 
 ```bash
 import requests
@@ -666,16 +666,15 @@ for name, query in queries.items():
 
 ```
 
-==> 
-collect_amf_metrics.py is a telemetry ingestion script designed to gather real-time and historical resource utilization data—specifically CPU usage and Memory consumption—from the Access and Mobility Management Function (AMF). The AMF is a critical Control Plane component in the 5G Core (5GC) responsible for connection and registration management.
+==> **Collect_amf_metrics.py** is a telemetry ingestion script designed to gather real-time and historical resource utilization data—specifically CPU usage and Memory consumption—from the Access and Mobility Management Function (AMF). The AMF is a critical Control Plane component in the 5G Core (5GC) responsible for connection and registration management.
 Here is the next section for your README, focusing on the expected outputs of the AMF collection and the subsequent prediction process.
 
 3. Expected Output of Collection
 Upon successful execution of collect_amf_metrics.py with the command "$ python3 collect_amf_metrics.py, the script serializes the Prometheus time-series data into two structured CSV files. These files serve as the "Ground Truth" for the AI model:
 
-5gc_amf_cpu.csv: Contains historical CPU processing rates (cores) sampled every minute.
+**5gc_amf_cpu.csv**: Contains historical CPU processing rates (cores) sampled every minute.
 
-5gc_amf_memory.csv: Contains historical RAM utilization (bytes) sampled every minute.
+**5gc_amf_memory.csv**: Contains historical RAM utilization (bytes) sampled every minute.
 
 Data Format Example: | timestamp | amf_cpu_usage | |-----------|---------------| | 1704456000| 0.0452 | | 1704456060| 0.0481 |
 
@@ -684,7 +683,7 @@ Data Format Example: | timestamp | amf_cpu_usage | |-----------|---------------|
 
 We utilize the Chronos-T5 (Tiny) foundation model to perform zero-shot time-series forecasting. Unlike traditional RNNs, this model leverages a transformer architecture to treat resource values as "tokens," allowing it to predict 5G patterns without needing per-node training.
 
-Create amf_predictor.py: This unified script loads the model once and performs inference on both CPU and Memory datasets to generate a 1-hour (60-minute) predictive horizon.
+Create **amf_predictor.py**: This unified script loads the model once and performs inference on both CPU and Memory datasets to generate a 1-hour (60-minute) predictive horizon.
 
 ```bash
 import pandas as pd
@@ -752,9 +751,9 @@ print("\nAll AMF analysis complete!")
 5. Final Visual Results
 After running the predictor with " $ python3 amf_predictor.py " , the system produces two high-resolution visualizations:
 
-forecast_amf_cpu_1h.png: Visualizes the predicted CPU demand surge.
+**forecast_amf_cpu_1h.png**: Visualizes the predicted CPU demand surge.
 
-forecast_amf_memory_1h.png: Visualizes the memory stability forecast.
+**forecast_amf_memory_1h.png**: Visualizes the memory stability forecast.
 
 We can visualise images with the command : 
 " $ xdg-open forecast_amf_memory_1h.png "

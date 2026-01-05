@@ -611,5 +611,154 @@ Password: prom-operator
 
 
 ---
-## Status
-🚧 Work in progress
+Next Step  : AI Predictive Analytics 
+
+1. Install Required Libraries
+
+```bash
+pip install requests pandas torch matplotlib transformers chronos
+```
+2. Step A: Metrics Collection (The Python Collector)
+We interface directly with the Prometheus HTTP API. The following script queries the container_cpu and container_memory metrics for specific pods over a 3-day window ( example).
+
+Create collect_amf_metrics.py:
+
+```bash
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+
+url = "http://localhost:9090/api/v1/query_range"
+
+# Specifically targeting the AMF (Access and Mobility Management Function)
+queries = {
+    "amf_cpu": 'sum(rate(container_cpu_usage_seconds_total{namespace="open5gs",pod=~"amf-.*"}[5m]))',
+    "amf_memory": 'sum(container_memory_usage_bytes{namespace="open5gs",pod=~"amf-.*"})'
+}
+
+# 3 days Metrics
+end = datetime.now()
+start = end - timedelta(days=3)
+
+for name, query in queries.items():
+    params = {
+        'query': query,
+        'start': start.timestamp(),
+        'end': end.timestamp(),
+        'step': '1m'
+    }
+
+    try:
+        response = requests.get(url, params=params).json()
+        
+        if 'data' in response and response['data']['result'] and len(response['data']['result'][0]['values']) > 0:
+            results = response['data']['result'][0]['values']
+            df = pd.DataFrame(results, columns=['timestamp', f'{name}_usage'])
+            
+            # File named exactly like the UPF pattern: 5gc_amf_cpu.csv
+            filename = f'5gc_{name}.csv'
+            df.to_csv(filename, index=False)
+            print(f"Success: {name} data saved to {filename}")
+        else:
+            print(f"No data found for {name}. Ensure AMF pod is running and port-forward is active.")
+    except Exception as e:
+        print(f"Error connecting to Prometheus: {e}")
+
+```
+
+==> 
+collect_amf_metrics.py is a telemetry ingestion script designed to gather real-time and historical resource utilization data—specifically CPU usage and Memory consumption—from the Access and Mobility Management Function (AMF). The AMF is a critical Control Plane component in the 5G Core (5GC) responsible for connection and registration management.
+Here is the next section for your README, focusing on the expected outputs of the AMF collection and the subsequent prediction process.
+
+3. Expected Output of Collection
+Upon successful execution of collect_amf_metrics.py with the command "$ python3 collect_amf_metrics.py, the script serializes the Prometheus time-series data into two structured CSV files. These files serve as the "Ground Truth" for the AI model:
+
+5gc_amf_cpu.csv: Contains historical CPU processing rates (cores) sampled every minute.
+
+5gc_amf_memory.csv: Contains historical RAM utilization (bytes) sampled every minute.
+
+Data Format Example: | timestamp | amf_cpu_usage | |-----------|---------------| | 1704456000| 0.0452 | | 1704456060| 0.0481 |
+
+
+4. Resource Forecasting (AI Inference
+
+We utilize the Chronos-T5 (Tiny) foundation model to perform zero-shot time-series forecasting. Unlike traditional RNNs, this model leverages a transformer architecture to treat resource values as "tokens," allowing it to predict 5G patterns without needing per-node training.
+
+Create amf_predictor.py: This unified script loads the model once and performs inference on both CPU and Memory datasets to generate a 1-hour (60-minute) predictive horizon.
+
+```bash
+import pandas as pd
+import torch
+import matplotlib.pyplot as plt
+import os
+from chronos import ChronosPipeline
+
+# Redirect cache to the 20GB disk
+os.environ['HF_HOME'] = '/mnt/models/huggingface'
+
+# 1. Load Model (Shared for both tasks)
+print("Loading Chronos-T5 Model for AMF Analysis...")
+pipeline = ChronosPipeline.from_pretrained(
+    "amazon/chronos-t5-tiny",
+    device_map="cpu",
+    torch_dtype=torch.float32,
+)
+
+# 2. Process AMF CPU
+print("\n--- Analyzing AMF CPU ---")
+df_cpu = pd.read_csv("5gc_amf_cpu.csv")
+series_cpu = torch.tensor(df_cpu["amf_cpu_usage"].values, dtype=torch.float32)
+
+print("Performing Inference (1-hour horizon)...")
+forecast_cpu = pipeline.predict(series_cpu, prediction_length=60)
+mean_cpu = forecast_cpu[0].mean(dim=0)
+
+# Plot CPU
+plt.figure(figsize=(12, 6))
+plt.plot(df_cpu["amf_cpu_usage"].values[-200:], label="Historical AMF CPU", color="tab:blue")
+plt.plot(range(200, 260), mean_cpu.numpy(), label="AI 1-Hour Forecast", color="red", linestyle="--")
+plt.title("5G AMF CPU Usage: 1-Hour Predictive Horizon")
+plt.xlabel("Time (Minutes)")
+plt.ylabel("CPU Usage")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.savefig("forecast_amf_cpu_1h.png")
+print("SUCCESS: forecast_amf_cpu_1h.png saved.")
+
+# 3. Process AMF Memory
+print("\n--- Analyzing AMF Memory ---")
+df_mem = pd.read_csv("5gc_amf_memory.csv")
+series_mem = torch.tensor(df_mem["amf_memory_usage"].values, dtype=torch.float32)
+
+print("Performing Inference (1-hour horizon)...")
+forecast_mem = pipeline.predict(series_mem, prediction_length=60)
+mean_mem = forecast_mem[0].mean(dim=0)
+
+# Plot Memory
+plt.figure(figsize=(12, 6))
+plt.plot(df_mem["amf_memory_usage"].values[-200:], label="Historical AMF RAM", color="tab:green")
+plt.plot(range(200, 260), mean_mem.numpy(), label="AI 1-Hour Forecast", color="blue", linestyle="--")
+plt.title("5G AMF Memory Usage: 1-Hour Predictive Horizon")
+plt.xlabel("Time (Minutes)")
+plt.ylabel("Memory Usage")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.savefig("forecast_amf_memory_1h.png")
+print("SUCCESS: forecast_amf_memory_1h.png saved.")
+
+print("\nAll AMF analysis complete!")
+```
+
+5. Final Visual Results
+After running the predictor with " $ python3 amf_predictor.py " , the system produces two high-resolution visualizations:
+
+forecast_amf_cpu_1h.png: Visualizes the predicted CPU demand surge.
+
+forecast_amf_memory_1h.png: Visualizes the memory stability forecast.
+
+We can visualise images with the command : 
+" $ xdg-open forecast_amf_memory_1h.png "
+
+<img width="1249" height="693" alt="image" src="https://github.com/user-attachments/assets/871a018b-739a-4e72-a423-054e6169a988" />
+
+

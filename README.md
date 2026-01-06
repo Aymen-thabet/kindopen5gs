@@ -765,7 +765,7 @@ We can visualise images with the command :
 
 ```bash
 pip install nixtla
-```bash
+```
 
 Then go to : **https://dashboard.nixtla.io/**
 
